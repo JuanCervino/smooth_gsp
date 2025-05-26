@@ -34,6 +34,7 @@ def main(args):
 
     # Get data and adjacency matrix
     D = torch.Tensor(D)
+
     W = np.array(G['W'].toarray())
     
     # Create the Laplacian matrix
@@ -43,7 +44,6 @@ def main(args):
     # Create the mask
     # Sample Trajectories TODO: Add samplers
     train_set, test_set, mask = gu.get_mask(D, args.percentage)
-    
     
     if args.method == 'nni':
         x_recon = gu.solver_NNI_nan(mask.cpu().numpy(), train_set.cpu().numpy(), G['coords'])
@@ -57,6 +57,7 @@ def main(args):
         print("Test", mse(x_recon[~mask], D[~mask].cpu().numpy()))
 
     elif args.method in ['MSE', 'Tikhonov', 'Sobolev', 'GraphRegularization', 'Temporal', 'All']:
+        
         # Create the matrix X
         X = torch.randn_like(D, requires_grad=True)
 
@@ -68,7 +69,7 @@ def main(args):
         
         ## Learning pipeline
         for e in range(args.epochs):
-            
+                        
             # Zero the gradients before the forward pass
             optimizer.zero_grad()
 
@@ -85,7 +86,6 @@ def main(args):
                 acc_total = accuracy(X, D)
                 acc_train = accuracy(X[mask], D[mask])
                 acc_test = accuracy(X[~mask], D[~mask])
-
                 print(f'Epoch {e}, Loss Total: {acc_total.item()}, Loss Train: {acc_train.item()}, Loss Test: {acc_test.item()}')
                 
             # print(f'Gradient: {X.grad}')
@@ -97,11 +97,10 @@ def main(args):
 
         # Create the optimizer
         optimizer = optim.Adam([X], lr=args.lr)
-        
+
         # Get the loss function
-        loss_fn = gm.get_loss(args.method, args.coefficient_mse, args.coefficient_lap, args.coefficient_temp, args.coefficient_sob, L, args.epsilon, args.beta, D.shape[1])
+        pm_loss = gm.primal_dual_loss(X, D.shape[1], L, args.epsilon, args.beta, args.alpha, args.dual_step_mu, args.dual_step_lambdas)
         
-        lambdas = torch.zeros(X.shape[1]-1)
         ## Learning pipeline
         for e in range(args.epochs):
             
@@ -109,11 +108,8 @@ def main(args):
             optimizer.zero_grad()
 
             # Compute the loss
-            loss = loss_fn(X, train_set, mask, lambdas)
+            loss = pm_loss.primal(X, train_set, mask)
             
-            # Compute the dual condition
-            dual_update = gm.update_lambdas(lambdas.get_lambdas, X, train_set, mask, L, args.epsilon, args.beta)
-
             # Backpropagate the loss
             loss.backward()
 
@@ -130,8 +126,7 @@ def main(args):
             if e % args.primal_steps == 0:
                 # Update the lambdas
                 with torch.no_grad():
-                    lambdas = gm.update_lambdas(X, train_set, mask, lambdas)
-                    print(f'Updated lambdas: {lambdas}')
+                    pm_loss.dual(X, train_set, mask)
 
 
 if __name__ == '__main__':
@@ -150,6 +145,12 @@ if __name__ == '__main__':
     parser.add_argument('--coefficient_temp', type=float, default=0.01)
     parser.add_argument('--epsilon', type=float, default=0.01)
     parser.add_argument('--beta', type=float, default=0.5)
+    
+    #Primal Dual Parameters
+    parser.add_argument('--alpha', type=float, default=0.1)
+    parser.add_argument('--dual_step_mu', type=float, default=0.01)
+    parser.add_argument('--dual_step_lambdas', type=float, default=0.01)
+    parser.add_argument('--primal_steps', type=int, default=10, help='Number of steps for the primal update in primal dual method')
     
     args = parser.parse_args()
     

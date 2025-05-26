@@ -8,7 +8,7 @@ import scipy.linalg as scipy
 
 
 def compute_sobolev_matrix(Laplacian, epsilon, beta):
-    sobolev = Laplacian + epsilon * np.eye(Laplacian.shape[0])
+    sobolev = Laplacian + epsilon * torch.eye(Laplacian.shape[0])
     sobolev = 0.5 * (sobolev + sobolev.T)
     sobolev = scipy.fractional_matrix_power(sobolev, beta)
     return torch.tensor(sobolev, dtype=torch.float32)
@@ -64,11 +64,12 @@ class WeightedSobolevLoss(BaseLoss):
         return lambdas @ loss_sob
 
 class TemporalLoss(BaseLoss):
-    def __init__(self, coefficient, Dh):
+    def __init__(self, coefficient, M):
         super().__init__(coefficient)
-        self.Dh = Dh
-
+        self.Dh = create_Dh_torch(M)
+        self.coefficient = coefficient
     def __call__(self, x, y, mask):
+        # print(x.shape, self.Dh.shape)
         x_diff = x @ self.Dh
         loss_temporal = torch.norm(x_diff, p=2)
         return self.coefficient * loss_temporal
@@ -125,12 +126,6 @@ def get_loss(method, coefficient_mse, coefficient_lap, coefficient_temp, coeffic
         
         return CombinedLoss(mse_loss, temporal_loss)
      
-    elif method == "PrimalDual":
-        
-        sobolev_loss = WeightedSobolevLoss(coefficient_sob, Laplacian, epsilon, beta, M)
-        
-        return CombinedLoss(mse_loss, temporal_loss)
-
      
     elif method == 'All':
         lap_loss = LaplacianLoss(coefficient_lap, Laplacian)
@@ -145,28 +140,34 @@ def get_loss(method, coefficient_mse, coefficient_lap, coefficient_temp, coeffic
     
     
 class primal_dual_loss:
-    def __init__(self, x, y, mask, Dh, Laplacian, epsilon, beta, alpha,lambdas, mu):
+    def __init__(self, x, M, Laplacian, epsilon, beta, alpha, dual_step_mu, dual_step_lambdas):
         self.epsilon = epsilon
         self.mu = 1.
-        self.lambdas = lambdas
-        self.Dh = Dh
-        self.Sobolev = self.compute_sobolev_matrix(x.shape[1], epsilon, beta)
+        self.lambdas = torch.ones(x.shape[1]-1)/(x.shape[1]-1)
+         
+        self.Dh = create_Dh_torch(M)
+        self.dual_step_mu = dual_step_mu
+        self.dual_step_lambdas = dual_step_lambdas
+        self.Sobolev = compute_sobolev_matrix(Laplacian, epsilon, beta)
+        self.alpha = alpha
         
     def primal(self, x, y, mask):
-        
-        loss_mse = self.epsilon * F.mse_loss(torch.mul(x, mask), y)
+
+        loss_mse = self.mu * F.mse_loss(torch.mul(x, mask), y)
         x_diff = x @ self.Dh
-        loss_sob = torch.trace(x_diff.T @ self.Sobolev @ x_diff)
-        return self.lambdas
+        loss_grad = torch.diag(x_diff.T @ self.Sobolev @ x_diff)
+        loss_grad = loss_grad @ self.lambdas
+        return loss_mse + loss_grad
     
-    def dual(lambdas, x, y, mask, Dh, epsilon, beta):
+    def dual(self, x, y, mask):
         """
         Update the lambdas using the primal-dual method.
         """
-        x_diff = x @ Dh
+        self.mu = F.relu(self.mu + self.dual_step_mu * (F.mse_loss(torch.mul(x, mask), y)-self.alpha))
+        x_diff = x @ self.Dh
         loss_sob = torch.diag(x_diff.T @ self.Sobolev @ x_diff)
+        self.lambdas = self.lambdas + self.dual_step_lambdas * loss_sob
+        self.lambdas = torch.max(self.lambdas, torch.zeros_like(self.lambdas))  # Ensure non-negativity
+        self.lambdas = self.lambdas / torch.norm(self.lambdas, p=2)
         
-        # Update rule for lambdas
-        lambdas = lambdas - epsilon * loss_sob
-        
-        return lambdas
+        pass
