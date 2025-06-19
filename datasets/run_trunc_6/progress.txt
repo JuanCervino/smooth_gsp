@@ -1,0 +1,33 @@
+Starting SpeedyWeather.jl run 0001 on Thu, 19 Jun 2025 16:50:36
+Integrating:
+SpectralGrid:
+├ Spectral:   T6 LowerTriangularMatrix{Complex{Float32}}, radius = 6.371e6 m
+├ Grid:       12-ring OctahedralGaussianGrid{Float32}, 360 grid points
+├ Resolution: 1.19e+03km (average), 1e+03km × 1.6e+03km (Equator)
+└ Vertical:   1-level SigmaCoordinates
+Time: 20.0 days at Δt = 7200.0s
+
+All data will be stored in /Users/juancervino/Dropbox/Github/smooth_gsp/datasets/run_0001
+
+  5%, ETA: 0:00:12, 282.47 years/day
+ 10%, ETA: 0:00:06, 590.63 years/day
+ 15%, ETA: 0:00:03, 898.78 years/day
+ 20%, ETA: 0:00:02, 1206.93 years/day
+ 25%, ETA: 0:00:02, 1515.08 years/day
+ 30%, ETA: 0:00:01, 1823.24 years/day
+ 35%, ETA: 0:00:01,  2.13 millenia/day
+ 40%, ETA: 0:00:01,  2.44 millenia/day
+ 45%, ETA: 0:00:01,  2.75 millenia/day
+ 50%, ETA: 0:00:01,  3.06 millenia/day
+ 55%, ETA: 0:00:00,  3.36 millenia/day
+ 60%, ETA: 0:00:00,  3.67 millenia/day
+ 65%, ETA: 0:00:00,  3.98 millenia/day
+ 70%, ETA: 0:00:00,  4.29 millenia/day
+ 75%, ETA: 0:00:00,  4.60 millenia/day
+ 80%, ETA: 0:00:00,  4.90 millenia/day
+ 85%, ETA: 0:00:00,  5.21 millenia/day
+ 90%, ETA: 0:00:00,  5.52 millenia/day
+ 95%, ETA: 0:00:00,  5.83 millenia/day
+100%, ETA: 0:00:00,  6.11 millenia/day
+
+Integration done in 770 milliseconds.
