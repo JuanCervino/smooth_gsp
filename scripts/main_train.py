@@ -99,8 +99,11 @@ def main(args):
         optimizer = optim.Adam([X], lr=args.lr)
 
         # Get the loss function
-        pm_loss = gm.primal_dual_loss(X, D.shape[1], L, args.epsilon, args.beta, args.alpha, args.dual_step_mu, args.dual_step_lambdas)
-        
+        Dh = gm.create_Dh_torch(D.shape[1])
+        Sobolev = gm.compute_sobolev_matrix(L, args.epsilon, args.beta)
+        dual_func = lambda x: gm.get_Sobolev_smoothness_function(x, Dh, Sobolev, args.dual_function_type)
+        pm_loss = gm.primal_dual_loss(X, D.shape[1], L, args.epsilon, args.beta, args.alpha, args.dual_step_mu, args.dual_step_lambdas, lambda_func=dual_func)
+
         ## Learning pipeline
         for e in range(args.epochs):
             
@@ -151,6 +154,7 @@ if __name__ == '__main__':
     parser.add_argument('--dual_step_mu', type=float, default=0.01)
     parser.add_argument('--dual_step_lambdas', type=float, default=0.01)
     parser.add_argument('--primal_steps', type=int, default=10, help='Number of steps for the primal update in primal dual method')
+    parser.add_argument('--dual_function_type', type=str, default='integral', choices=['timewise', 'integral'], help='Type of dual function to use in primal dual method')
     
     args = parser.parse_args()
     

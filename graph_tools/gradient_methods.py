@@ -5,7 +5,19 @@ import torch.nn.functional as F
 from graph_tools.graph_utils import create_Dh_numpy, create_Dh_torch
 import scipy.linalg as scipy
 
+# Example lambda function
 
+def get_Sobolev_smoothness_function(x, Dh, Sobolev, type):
+    assert type in ['integral', 'timewise'], "Type must be either 'integral' or 'timewise'."
+    if type == 'timewise':
+        x_diff = x @ Dh
+        loss_sob = torch.diag(x_diff.T @ Sobolev @ x_diff)
+        return loss_sob
+
+    elif type == 'integral':
+        x_diff = x @ Dh
+        loss_sob = torch.diag(x_diff.T @ Sobolev @ x_diff)
+        return torch.sum(loss_sob)
 
 def compute_sobolev_matrix(Laplacian, epsilon, beta):
     sobolev = Laplacian + epsilon * torch.eye(Laplacian.shape[0])
@@ -51,12 +63,6 @@ class WeightedSobolevLoss(BaseLoss):
         super().__init__(coefficient)
         self.Sobolev = compute_sobolev_matrix(Laplacian, epsilon, beta)
         self.Dh = create_Dh_torch(M)
-
-    # def compute_sobolev_matrix(self, Laplacian, epsilon, beta):
-    #     sobolev = Laplacian + epsilon * np.eye(Laplacian.shape[0])
-    #     sobolev = 0.5 * (sobolev + sobolev.T)
-    #     sobolev = scipy.fractional_matrix_power(sobolev, beta)
-    #     return torch.tensor(sobolev, dtype=torch.float32)
 
     def __call__(self, x, y, mask, lambdas):
         x_diff = x @ self.Dh
@@ -140,23 +146,44 @@ def get_loss(method, coefficient_mse, coefficient_lap, coefficient_temp, coeffic
     
     
 class primal_dual_loss:
-    def __init__(self, x, M, Laplacian, epsilon, beta, alpha, dual_step_mu, dual_step_lambdas):
+    def __init__(self, x, M, Laplacian, epsilon, beta, alpha, dual_step_mu, dual_step_lambdas, lambda_func):
         self.epsilon = epsilon
         self.mu = 1.
-        self.lambdas = torch.ones(x.shape[1]-1)/(x.shape[1]-1)
          
         self.Dh = create_Dh_torch(M)
         self.dual_step_mu = dual_step_mu
         self.dual_step_lambdas = dual_step_lambdas
         self.Sobolev = compute_sobolev_matrix(Laplacian, epsilon, beta)
         self.alpha = alpha
+
+        # Create wrapper for lambda_func to only take x as parameter
+        self.lambda_func = lambda_func
+        
+        # Initialize lambdas based on the output dimension of the lambda function
+        with torch.no_grad():
+            output_dim = self.lambda_func(x)
+            # Handle scalar case (timewise returns a sum, which is scalar)
+            if output_dim.dim() == 0:  # scalar tensor
+                output_dim = 1
+            else:
+                output_dim = output_dim.shape[0]  # Use shape[0] for 1D tensor          
+                  
+        if output_dim == 1:
+            self.lambdas = torch.tensor([1.0], requires_grad=True)
+        else:
+            self.lambdas = torch.ones(output_dim) / output_dim
+
         
     def primal(self, x, y, mask):
 
         loss_mse = self.mu * F.mse_loss(torch.mul(x, mask), y)
-        x_diff = x @ self.Dh
-        loss_grad = torch.diag(x_diff.T @ self.Sobolev @ x_diff)
-        loss_grad = loss_grad @ self.lambdas
+
+        lambda_output = self.lambda_func(x)
+        if lambda_output.dim() == 0:  # scalar tensor
+            loss_grad = lambda_output * self.lambdas[0]  # multiply scalar by first lambda
+        else:  # vector tensor
+            loss_grad = lambda_output @ self.lambdas  # matrix multiplication
+           
         return loss_mse + loss_grad
     
     def dual(self, x, y, mask):
@@ -164,10 +191,10 @@ class primal_dual_loss:
         Update the lambdas using the primal-dual method.
         """
         self.mu = F.relu(self.mu + self.dual_step_mu * (F.mse_loss(torch.mul(x, mask), y)-self.alpha))
-        x_diff = x @ self.Dh
-        loss_sob = torch.diag(x_diff.T @ self.Sobolev @ x_diff)
-        self.lambdas = self.lambdas + self.dual_step_lambdas * loss_sob
+
+        self.lambdas = self.lambdas + self.dual_step_lambdas * self.lambda_func(x)
+        
         self.lambdas = torch.max(self.lambdas, torch.zeros_like(self.lambdas))  # Ensure non-negativity
-        self.lambdas = self.lambdas / torch.norm(self.lambdas, p=2)
+        self.lambdas = self.lambdas / torch.norm(self.lambdas, p=2) # Project onto the unit sphere
         
         pass

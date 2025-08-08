@@ -1,7 +1,17 @@
 import numpy as np
 import torch
 from scipy.interpolate import LinearNDInterpolator, NearestNDInterpolator
+import scipy.linalg as scipy
 
+
+def compute_sobolev_matrix( Laplacian, epsilon, beta):
+        # Create eye matrix on the same device as Laplacian
+        sobolev = Laplacian + epsilon * torch.eye(Laplacian.shape[0], device=Laplacian.device)
+        sobolev = 0.5 * (sobolev + sobolev.T)
+        if beta != 1.0:
+            sobolev = scipy.fractional_matrix_power(sobolev.cpu().numpy(), beta)
+            sobolev = torch.tensor(sobolev, dtype=torch.float32, device=Laplacian.device)
+        return sobolev
 def create_Dh_numpy(M):
     """
     Create a difference matrix Dh of size (M, M-1) using numpy.
