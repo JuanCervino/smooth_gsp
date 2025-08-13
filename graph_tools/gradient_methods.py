@@ -2,28 +2,8 @@ import numpy as np
 import torch 
 import torch.nn as nn
 import torch.nn.functional as F
-from graph_tools.graph_utils import create_Dh_numpy, create_Dh_torch
+from graph_tools.graph_utils import create_Dh_numpy, create_Dh_torch,compute_sobolev_matrix,get_Sobolev_smoothness_function
 import scipy.linalg as scipy
-
-# Example lambda function
-
-def get_Sobolev_smoothness_function(x, Dh, Sobolev, type):
-    assert type in ['integral', 'timewise'], "Type must be either 'integral' or 'timewise'."
-    if type == 'timewise':
-        x_diff = x @ Dh
-        loss_sob = torch.diag(x_diff.T @ Sobolev @ x_diff)
-        return loss_sob
-
-    elif type == 'integral':
-        x_diff = x @ Dh
-        loss_sob = torch.diag(x_diff.T @ Sobolev @ x_diff)
-        return torch.sum(loss_sob)
-
-def compute_sobolev_matrix(Laplacian, epsilon, beta):
-    sobolev = Laplacian + epsilon * torch.eye(Laplacian.shape[0])
-    sobolev = 0.5 * (sobolev + sobolev.T)
-    sobolev = scipy.fractional_matrix_power(sobolev, beta)
-    return torch.tensor(sobolev, dtype=torch.float32)
 
 class BaseLoss:
     def __init__(self, coefficient):
@@ -42,10 +22,10 @@ class LaplacianLoss(BaseLoss):
         return self.coefficient * loss_lap
 
 class SobolevLoss(BaseLoss):
-    def __init__(self, coefficient, Laplacian, epsilon, beta, M):
+    def __init__(self, coefficient, Laplacian, epsilon, beta, M,device):
         super().__init__(coefficient)
         self.Sobolev = compute_sobolev_matrix(Laplacian, epsilon, beta)
-        self.Dh = create_Dh_torch(M)
+        self.Dh = create_Dh_torch(M).to(device)
 
     # def compute_sobolev_matrix(self, Laplacian, epsilon, beta):
     #     sobolev = Laplacian + epsilon * np.eye(Laplacian.shape[0])
@@ -59,10 +39,10 @@ class SobolevLoss(BaseLoss):
         return self.coefficient * loss_sob
 
 class WeightedSobolevLoss(BaseLoss):
-    def __init__(self, coefficient, Laplacian, epsilon, beta, M):
+    def __init__(self, coefficient, Laplacian, epsilon, beta, M,device):
         super().__init__(coefficient)
         self.Sobolev = compute_sobolev_matrix(Laplacian, epsilon, beta)
-        self.Dh = create_Dh_torch(M)
+        self.Dh = create_Dh_torch(M).to(device)
 
     def __call__(self, x, y, mask, lambdas):
         x_diff = x @ self.Dh
@@ -70,9 +50,9 @@ class WeightedSobolevLoss(BaseLoss):
         return lambdas @ loss_sob
 
 class TemporalLoss(BaseLoss):
-    def __init__(self, coefficient, M):
+    def __init__(self, coefficient, M,device):
         super().__init__(coefficient)
-        self.Dh = create_Dh_torch(M)
+        self.Dh = create_Dh_torch(M).to(device)
         self.coefficient = coefficient
     def __call__(self, x, y, mask):
         # print(x.shape, self.Dh.shape)
@@ -99,7 +79,7 @@ class CombinedLoss:
         return total_loss
 
 
-def get_loss(method, coefficient_mse, coefficient_lap, coefficient_temp, coefficient_sob, Laplacian, epsilon, beta, M):
+def get_loss(method, coefficient_mse, coefficient_lap, coefficient_temp, coefficient_sob, Laplacian, epsilon, beta, M,device):
     
     # MSE is always used
     mse_loss = MSELoss(coefficient_mse)
@@ -110,13 +90,13 @@ def get_loss(method, coefficient_mse, coefficient_lap, coefficient_temp, coeffic
     if method == 'Tikhonov':
         
         lap_loss = LaplacianLoss(coefficient_lap, Laplacian)
-        temporal_loss = TemporalLoss(coefficient_temp, M)
+        temporal_loss = TemporalLoss(coefficient_temp, M,device)
 
         return CombinedLoss(mse_loss, lap_loss, temporal_loss)
         
     elif method == 'Sobolev':
         
-        sobolev_loss = SobolevLoss(coefficient_sob, Laplacian, epsilon, beta, M)
+        sobolev_loss = SobolevLoss(coefficient_sob, Laplacian, epsilon, beta, M,device)
 
         return CombinedLoss(mse_loss, sobolev_loss)
         
@@ -128,15 +108,15 @@ def get_loss(method, coefficient_mse, coefficient_lap, coefficient_temp, coeffic
     
     elif method == 'Temporal':
         
-        temporal_loss = TemporalLoss(coefficient_temp, M)
+        temporal_loss = TemporalLoss(coefficient_temp, M,device)
         
         return CombinedLoss(mse_loss, temporal_loss)
      
      
     elif method == 'All':
         lap_loss = LaplacianLoss(coefficient_lap, Laplacian)
-        sobolev_loss = SobolevLoss(coefficient_sob, Laplacian, epsilon, beta, M)
-        temporal_loss = TemporalLoss(coefficient_temp, M)
+        sobolev_loss = SobolevLoss(coefficient_sob, Laplacian, epsilon, beta, M,device)
+        temporal_loss = TemporalLoss(coefficient_temp, M,device)
         
         return CombinedLoss(mse_loss, temporal_loss, lap_loss, sobolev_loss)
     else:
@@ -146,9 +126,10 @@ def get_loss(method, coefficient_mse, coefficient_lap, coefficient_temp, coeffic
     
     
 class primal_dual_loss:
-    def __init__(self, x, M, Laplacian, epsilon, beta, alpha, dual_step_mu, dual_step_lambdas, lambda_func):
+    def __init__(self, x, M, Laplacian, epsilon, beta, alpha, dual_step_mu, dual_step_lambdas, lambda_func,device):
         self.epsilon = epsilon
-        self.mu = 1.
+        self.device=device
+        self.mu = torch.tensor(1.,device=self.device)
          
         self.Dh = create_Dh_torch(M)
         self.dual_step_mu = dual_step_mu

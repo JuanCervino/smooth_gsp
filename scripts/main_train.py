@@ -10,6 +10,7 @@ import torch
 import graph_tools.gradient_methods as gm
 import torch.nn.functional as F
 import graph_tools.graph_utils as gu
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from torch import nn
 from torch import optim
@@ -22,6 +23,21 @@ def accuracy(y_tilde, y):
 def mse(y_tilde, y):
     return np.mean((y_tilde - y) ** 2)
 
+#Julian: Extra functions for metric calculations
+def mae(y_tilde, y):
+    return F.l1_loss(y_tilde, y)
+
+def mae_numpy(y_tilde, y):
+    return np.mean(np.abs(y_tilde - y))
+
+
+def mape(y_tilde, y):
+    return (torch.abs((y - y_tilde) / (y))).mean()
+
+
+def mape_numpy(y_tilde, y):
+    return np.mean(np.abs((y - y_tilde) / (y)))
+
 
 # [26] Qiu "Time-Varying Graph Signal Reconstruction" MSE + Temp
 #  Giraldo  "Reconstuction of Time-Varying Graph Signals" MSE + Sob
@@ -30,20 +46,29 @@ def mse(y_tilde, y):
 
 def main(args):
 
-    G, D = load_dataset(args.dataset, knn_param=args.knn)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    # Get data and adjacency matrix
-    D = torch.Tensor(D)
+    G, D, good_data = load_dataset(args.dataset, knn_param=args.knn)
 
+    # Move tensors to GPU
+    if good_data is not None:
+        good_data = torch.Tensor(good_data).to(device)
+    D = torch.Tensor(D).to(device)
     W = np.array(G['W'].toarray())
     
-    # Create the Laplacian matrix
+    # Create the Laplacian matrix and move to GPU
     L = np.diag(W@np.ones(W.shape[0])) - W
-    L = torch.Tensor(L)
+    L = torch.Tensor(L).to(device)
+
     
     # Create the mask
     # Sample Trajectories TODO: Add samplers
-    train_set, test_set, mask = gu.get_mask(D, args.percentage)
+    train_set, test_set, mask, test_mask = gu.get_mask(D, args.percentage, good_data, seed=seed)
+    #train_set, test_set, mask = gu.get_mask(D, args.percentage)
+
+    # Move train_set and mask to GPU
+    train_set = train_set.to(device)
+    mask = mask.to(device)
     
     if args.method == 'nni':
         x_recon = gu.solver_NNI_nan(mask.cpu().numpy(), train_set.cpu().numpy(), G['coords'])
@@ -54,18 +79,24 @@ def main(args):
         
         print("Total", mse(x_recon, D.cpu().numpy()))
         print("Train", mse(x_recon[mask], D[mask].cpu().numpy()))
-        print("Test", mse(x_recon[~mask], D[~mask].cpu().numpy()))
+
+        D_cpu = D.cpu()
+
+        print("Test", mse(x_recon[test_mask.cpu().numpy()], D_cpu[test_mask.cpu()].numpy()))
 
     elif args.method in ['MSE', 'Tikhonov', 'Sobolev', 'GraphRegularization', 'Temporal', 'All']:
         
         # Create the matrix X
-        X = torch.randn_like(D, requires_grad=True)
+        X = torch.randn_like(D, requires_grad=True).to(device)
 
         # Create the optimizer
         optimizer = optim.Adam([X], lr=args.lr)
         
+        #Julian: We added the scheduler because in the original paper Jhony used an algorithm to adapt the lr
+        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=100, verbose=False)
+        
         # Get the loss function
-        loss_fn = gm.get_loss(args.method, args.coefficient_mse, args.coefficient_lap, args.coefficient_temp, args.coefficient_sob, L, args.epsilon, args.beta, D.shape[1])
+        loss_fn = gm.get_loss(args.method, args.coefficient_mse, args.coefficient_lap, args.coefficient_temp, args.coefficient_sob, L, args.epsilon, args.beta, D.shape[1],device)
         
         ## Learning pipeline
         for e in range(args.epochs):
@@ -82,10 +113,14 @@ def main(args):
             # Update the parameters
             optimizer.step()
 
+            acc_train = accuracy(X[mask], D[mask])
+            rmse_train = torch.sqrt(acc_train)
+            scheduler.step(rmse_train)
+
             if e % 100 == 0:
                 acc_total = accuracy(X, D)
                 acc_train = accuracy(X[mask], D[mask])
-                acc_test = accuracy(X[~mask], D[~mask])
+                acc_test = accuracy(X[test_mask], D[test_mask])
                 print(f'Epoch {e}, Loss Total: {acc_total.item()}, Loss Train: {acc_train.item()}, Loss Test: {acc_test.item()}')
                 
             # print(f'Gradient: {X.grad}')
@@ -94,15 +129,18 @@ def main(args):
     elif args.method in ['PrimalDual']:
         # Create the matrix X
         X = torch.randn_like(D, requires_grad=True)
+        X = X.to(device)
+        
+        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=100, verbose=False)
 
         # Create the optimizer
         optimizer = optim.Adam([X], lr=args.lr)
 
         # Get the loss function
-        Dh = gm.create_Dh_torch(D.shape[1])
-        Sobolev = gm.compute_sobolev_matrix(L, args.epsilon, args.beta)
-        dual_func = lambda x: gm.get_Sobolev_smoothness_function(x, Dh, Sobolev, args.dual_function_type)
-        pm_loss = gm.primal_dual_loss(X, D.shape[1], L, args.epsilon, args.beta, args.alpha, args.dual_step_mu, args.dual_step_lambdas, lambda_func=dual_func)
+        Dh = gm.create_Dh_torch(D.shape[1],device)
+        Sobolev = gu.compute_sobolev_matrix(L, args.epsilon, args.beta)
+        dual_func = lambda x: gm.get_Sobolev_smoothness_function(x, Dh, Sobolev, args.dual_function_type,device)
+        pm_loss = gm.primal_dual_loss(X, D.shape[1], L, args.epsilon, args.beta, args.alpha, args.dual_step_mu, args.dual_step_lambdas, lambda_func=dual_func,device)
 
         ## Learning pipeline
         for e in range(args.epochs):
@@ -119,10 +157,14 @@ def main(args):
             # Update the parameters
             optimizer.step()
 
+            acc_train = accuracy(X[mask], D[mask])
+            rmse_train = torch.sqrt(acc_train)
+            scheduler.step(rmse_train)
+
             if e % 100 == 0:
                 acc_total = accuracy(X, D)
                 acc_train = accuracy(X[mask], D[mask])
-                acc_test = accuracy(X[~mask], D[~mask])
+                acc_test = accuracy(X[test_mask], D[test_mask])
 
                 print(f'Epoch {e}, Loss Total: {acc_total.item()}, Loss Train: {acc_train.item()}, Loss Test: {acc_test.item()}')
             
