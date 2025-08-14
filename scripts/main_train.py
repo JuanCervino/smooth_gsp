@@ -16,6 +16,8 @@ from torch import nn
 from torch import optim
 import torch.nn.functional as F
 
+import json
+
 @torch.no_grad()
 def accuracy(y_tilde, y):
     return F.mse_loss(y_tilde, y)
@@ -63,7 +65,7 @@ def main(args):
     
     # Create the mask
     # Sample Trajectories TODO: Add samplers
-    train_set, test_set, mask, test_mask = gu.get_mask(D, args.percentage, good_data, seed=seed)
+    train_set, test_set, mask, test_mask = gu.sampler(args.type_sampler,D, args.percentage, good_data, seed=args.seed)
     #train_set, test_set, mask = gu.get_mask(D, args.percentage)
 
     # Move train_set and mask to GPU
@@ -174,6 +176,51 @@ def main(args):
                     pm_loss.dual(X, train_set, mask)
 
 
+    # Compute the RMSE
+    if method == 'nni':
+        MSE=mse(x_recon[test_mask.cpu().numpy()], D[test_mask].cpu().numpy())
+        RMSE = np.sqrt(MSE)
+        MAPE=mape_numpy(x_recon[test_mask.cpu().numpy()], D[test_mask].cpu().numpy())
+        MAE=mae_numpy(x_recon[test_mask.cpu().numpy()], D[test_mask].cpu().numpy())
+    else:
+        MSE=accuracy(X[test_mask], D[test_mask])
+        MAPE=mape(X[test_mask], D[test_mask])
+        MAE=mae(X[test_mask], D[test_mask])
+        RMSE = torch.sqrt(MSE).cpu()
+
+    results={'RMSE':RMSE,'MAPE':MAPE,'MAE':MAE}
+    # Save the results to a JSON file.
+    # The JSON stores results for a specific dataset and a single seed.
+    # It contains entries for different percentage values, where each percentage
+    # maps to its evaluation metrics:
+    # {0.1: {'RMSE': --, 'MAE': --, 'MAPE': --},
+    #  0.2: {'RMSE': --, 'MAE': --, 'MAPE': --}, ...}
+
+    json_output_path = os.path.join('results', f"{args.dataset}_{args.seed}.json")
+    os.makedirs(json_output_path,exist_of=True)
+
+    # Load existing data if file exists, otherwise start with empty dict
+    if os.path.exists(json_output_path):
+        with open(json_output_path, "r") as f:
+            data = json.load(f)
+    else:
+        data = {}
+
+    # Add new results only if this percentage is not already present
+    if str(args.percentage) not in data:
+        data[str(args.percentage)] = results
+        with open(json_output_path, "w") as json_file:
+            json.dump(data, json_file, indent=4)
+        print(f"Added results for percentage {args.percentage}")
+    else:
+        print(f"Results for percentage {args.percentage} already exist, skipping.")
+    
+
+
+    
+
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Get Smooth Graph Signal')
     parser.add_argument('--dataset', type=str, default='sea_surface_temperature')
@@ -198,6 +245,8 @@ if __name__ == '__main__':
     parser.add_argument('--primal_steps', type=int, default=10, help='Number of steps for the primal update in primal dual method')
     parser.add_argument('--dual_function_type', type=str, default='integral', choices=['timewise', 'integral'], help='Type of dual function to use in primal dual method')
     
+    parser.add_argument('--seed', type=int, default=42, help='seed')
+    parser.add_argument('--type_sampler', type=str, default='random', help='type_sampler')
     args = parser.parse_args()
     
     main(args)

@@ -5,6 +5,14 @@ import scipy.linalg as scipy
 
 
 
+def sampler(type_sampling='random',D,percentage,good_data,seed):
+    if type_sampling == 'random':
+        return get_mask(D, percentage, good_data, seed)
+    else:
+        print('This sampler is not implemented')
+        
+
+
 # Example lambda function
 
 def get_Sobolev_smoothness_function(x, Dh, Sobolev, type,device):
