@@ -33,12 +33,12 @@ def mae_numpy(y_tilde, y):
     return np.mean(np.abs(y_tilde - y))
 
 
-def mape(y_tilde, y):
-    return (torch.abs((y - y_tilde) / (y))).mean()
+def mape(y_tilde, y, eps=1e-8):
+    return (torch.abs((y - y_tilde) / (y + eps))).mean() 
 
 
-def mape_numpy(y_tilde, y):
-    return np.mean(np.abs((y - y_tilde) / (y)))
+def mape_numpy(y_tilde, y, eps=1e-8):
+    return np.mean(np.abs((y - y_tilde) / (y + eps)))
 
 
 # [26] Qiu "Time-Varying Graph Signal Reconstruction" MSE + Temp
@@ -142,7 +142,7 @@ def main(args):
         Dh = gm.create_Dh_torch(D.shape[1],device)
         Sobolev = gu.compute_sobolev_matrix(L, args.epsilon, args.beta)
         dual_func = lambda x: gm.get_Sobolev_smoothness_function(x, Dh, Sobolev, args.dual_function_type,device)
-        pm_loss = gm.primal_dual_loss(X, D.shape[1], L, args.epsilon, args.beta, args.alpha, args.dual_step_mu, args.dual_step_lambdas, lambda_func=dual_func,device)
+        pm_loss = gm.primal_dual_loss(X, D.shape[1], L, args.epsilon, args.beta, args.alpha, args.dual_step_mu, args.dual_step_lambdas, dual_func,device)
 
         ## Learning pipeline
         for e in range(args.epochs):
@@ -177,7 +177,7 @@ def main(args):
 
 
     # Compute the RMSE
-    if method == 'nni':
+    if args.method == 'nni':
         MSE=mse(x_recon[test_mask.cpu().numpy()], D[test_mask].cpu().numpy())
         RMSE = np.sqrt(MSE)
         MAPE=mape_numpy(x_recon[test_mask.cpu().numpy()], D[test_mask].cpu().numpy())
@@ -188,32 +188,61 @@ def main(args):
         MAE=mae(X[test_mask], D[test_mask])
         RMSE = torch.sqrt(MSE).cpu()
 
-    results={'RMSE':RMSE,'MAPE':MAPE,'MAE':MAE}
+    results={'RMSE':RMSE.item(),'MAPE':MAPE.item(),'MAE':MAE.item()}
     # Save the results to a JSON file.
     # The JSON stores results for a specific dataset and a single seed.
     # It contains entries for different percentage values, where each percentage
     # maps to its evaluation metrics:
-    # {0.1: {'RMSE': --, 'MAE': --, 'MAPE': --},
-    #  0.2: {'RMSE': --, 'MAE': --, 'MAPE': --}, ...}
+    #    {
+    #  "seeds": {
+    #    "42": {
+    #      "results_per_percentage": {
+    #        "0.1": { "RMSE": 0.0, "MAE": 0.0, "MAPE": 0.0 },
+    #        "0.2": { "RMSE": 0.0, "MAE": 0.0, "MAPE": 0.0 }
+    #      }
+    #    },
+    #    "10": {
+    #      "results_per_percentage": {
+    #        "0.1": { "RMSE": 0.0, "MAE": 0.0, "MAPE": 0.0 },
+    #        "0.2": { "RMSE": 0.0, "MAE": 0.0, "MAPE": 0.0 }
+    #      }
+    #    }
+    #  }
+    #}
 
-    json_output_path = os.path.join('results', f"{args.dataset}_{args.seed}.json")
-    os.makedirs(json_output_path,exist_of=True)
+    # Create the results folder for the given dataset and method
+    os.makedirs(f'results/{args.dataset}/{args.method}', exist_ok=True)
 
-    # Load existing data if file exists, otherwise start with empty dict
+    # Path to the JSON file for this sampler
+    json_output_path = os.path.join(
+        f'results/{args.dataset}/{args.method}', 
+        f"{args.type_sampler}.json"
+    )
+
+    # Load existing data if the file exists, otherwise create an empty structure
     if os.path.exists(json_output_path):
         with open(json_output_path, "r") as f:
             data = json.load(f)
     else:
-        data = {}
+        data = {"seeds": {}}
 
-    # Add new results only if this percentage is not already present
-    if str(args.percentage) not in data:
-        data[str(args.percentage)] = results
+    # Convert seed and percentage to strings (keys in JSON must be strings)
+    seed_key = str(args.seed)
+    percentage_key = str(args.percentage)
+
+    # Ensure that the current seed entry exists
+    if seed_key not in data["seeds"]:
+        data["seeds"][seed_key] = {"results_per_percentage": {}}
+
+    # Add results for this percentage if it does not already exist
+    if percentage_key not in data["seeds"][seed_key]["results_per_percentage"]:
+        data["seeds"][seed_key]["results_per_percentage"][percentage_key] = results
         with open(json_output_path, "w") as json_file:
             json.dump(data, json_file, indent=4)
-        print(f"Added results for percentage {args.percentage}")
+        print(f"Added results for seed={args.seed} and percentage={args.percentage}")
     else:
-        print(f"Results for percentage {args.percentage} already exist, skipping.")
+        print(f"Results for seed={args.seed} and percentage={args.percentage} already exist, skipping.")
+
     
 
 
@@ -231,7 +260,7 @@ if __name__ == '__main__':
     parser.add_argument('--percentage', type=float, default=0.5, help='Percentage of data to be used for training between 0 and 1')
     
     
-    parser.add_argument('--coefficient_mse', type=float, default=1)
+    parser.add_argument('--coefficient_mse', type=float, default=0.5)
     parser.add_argument('--coefficient_lap', type=float, default=0.01)
     parser.add_argument('--coefficient_sob', type=float, default=0.01)
     parser.add_argument('--coefficient_temp', type=float, default=0.01)

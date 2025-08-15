@@ -5,7 +5,7 @@ import scipy.linalg as scipy
 
 
 
-def sampler(type_sampling='random',D,percentage,good_data,seed):
+def sampler(type_sampling,D,percentage,good_data,seed):
     if type_sampling == 'random':
         return get_mask(D, percentage, good_data, seed)
     else:
