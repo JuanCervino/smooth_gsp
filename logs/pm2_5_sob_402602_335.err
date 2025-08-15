@@ -1,6 +1,0 @@
-/var/spool/slurmd/job403732/slurm_script: line 33: /home/ids/jpabon/anaconda3/etc/profile.d/conda.sh: No such file or directory
-
-CondaError: Run 'conda init' before 'conda activate'
-
-/home/ids/jpabon/miniconda3/envs/smooth_gsp/lib/python3.8/site-packages/torch/optim/lr_scheduler.py:60: UserWarning: The verbose parameter is deprecated. Please use get_last_lr() to access the learning rate.
-  warnings.warn(
