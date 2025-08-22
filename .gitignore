@@ -7,3 +7,6 @@ logs/
 *.json
 *.txt
 results/
+__pycache__/
+.ipynb_checkpoints/
+*.pyc
