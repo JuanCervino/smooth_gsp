@@ -1,3 +1,9 @@
 exp/
 results/
 logs/
+
+*.png
+*.jpg
+*.json
+*.txt
+results/

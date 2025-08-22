@@ -80,7 +80,7 @@ def main(args):
         print(D.cpu().numpy())
         
         print("Total", mse(x_recon, D.cpu().numpy()))
-        print("Train", mse(x_recon[mask], D[mask].cpu().numpy()))
+        print("Train", mse(x_recon[mask.cpu().numpy()], D[mask].cpu().numpy()))
 
         D_cpu = D.cpu()
 
