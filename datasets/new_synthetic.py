@@ -92,13 +92,13 @@ Temp[:, 0] = ftmp / np.linalg.norm(ftmp) * 100.0  # ||x1||2 = 100
 ###
 rng = np.random.default_rng(seed)
 ep_max = 1.0
-eps = rng.uniform(np.nextafter(0.0, 1.0), ep_max, size=T-1)
-eps = np.concatenate([eps, [ep_max]])
-epsilon = 1.0  # smoothness level
+epsilon = rng.uniform(1e-12, ep_max, size=T-1)
+#eps = np.concatenate([eps, [ep_max]])
+#epsilon = 1.0  # smoothness level
 ###
-for k_ in range(1, T):
+for k_,eps in zip( range(1, T), epsilon ):
     f = np.random.randn(N)
-    f = f / np.linalg.norm(f) * epsilon
+    f = f / np.linalg.norm(f) * eps
     fdc = np.random.randn() * 0.0 * np.ones(N)  # DC component (zeroed)
     Temp[:, k_] = Temp[:, k_ - 1] + LHalfInv @ f + fdc
 
@@ -113,7 +113,7 @@ noise = 0.1 * np.random.randn(*Temp.shape)  # measurement noise
 
 # save paramAWD (MATLAB -> .npz)
 np.savez(
-    'paramAWD.npz',
+    './datasets/paramAWD.npz',
     Position=Position,
     A=A,
     W=W,
@@ -143,15 +143,17 @@ for i_epsilon in [0, 1, 2, 4, 5, 6]:
     epsilon = epsilon_set[i_epsilon]
     Tempall[:, 0, i_epsilon] = Tempall[:, 0, 3]  # same x1
 
-    for k_ in range(1, T):
+    epsilon = rng.uniform(1e-12, epsilon, size=T-1)
+
+    for k_,eps in zip(range(1, T),epsilon):
         f = np.random.randn(N)
-        f = f / np.linalg.norm(f) * epsilon
+        f = f / np.linalg.norm(f) * eps
         fdc = np.random.randn() * 0.0 * np.ones(N)  # DC component (zeroed)
         Tempall[:, k_, i_epsilon] = Tempall[:, k_ - 1, i_epsilon] + LHalfInv2 @ f + fdc
 
 # save paramAWDall (MATLAB -> .npz)
 np.savez(
-    'paramAWDall.npz',
+    './datasets/paramAWDall.npz',
     Position=Position,
     A=A,
     W=W,
