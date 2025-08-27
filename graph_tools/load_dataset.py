@@ -13,7 +13,7 @@ def load_D(graph,data):
         D=data['Data']
         if graph == 'sea_surface_temperature':
             D=D[:,:600]
-    elif graph == 'synthetic':
+    elif graph == 'synthetic' or graph == 'paramAWD_var_ep':
         D=data['D']
     elif graph == 'PM2_5_concentration':
         D=data['myDataPM']
@@ -26,8 +26,11 @@ def load_dataset(graph, knn_param=10):
         # From
         # https://github.com/jhonygiraldo/GraphTRSS/blob/main/sea_surface_temperature_experiment/graph_construction/graph_construction.m
         # Load .mat file
-        if graph in ['sea_surface_temperature', 'covid_19_new_cases_global', 'covid_19_new_cases_USA', 'PM2_5_concentration','synthetic']:
-            data = loadmat(f'./datasets/{graph}.mat')
+        if graph in ['sea_surface_temperature', 'covid_19_new_cases_global', 'covid_19_new_cases_USA', 'PM2_5_concentration','synthetic','paramAWD_var_ep']:
+            if graph == 'paramAWD_var_ep':
+                data = np.load(f'./datasets/{graph}.npz')
+            else:
+                data = loadmat(f'./datasets/{graph}.mat')
             points = data['Position']
 
             N = points.shape[0]

@@ -113,7 +113,7 @@ noise = 0.1 * np.random.randn(*Temp.shape)  # measurement noise
 
 # save paramAWD (MATLAB -> .npz)
 np.savez(
-    './datasets/paramAWD.npz',
+    './datasets/paramAWD_var_ep.npz',
     Position=Position,
     A=A,
     W=W,
@@ -153,7 +153,7 @@ for i_epsilon in [0, 1, 2, 4, 5, 6]:
 
 # save paramAWDall (MATLAB -> .npz)
 np.savez(
-    './datasets/paramAWDall.npz',
+    './datasets/paramAWDall_var_ep.npz',
     Position=Position,
     A=A,
     W=W,
