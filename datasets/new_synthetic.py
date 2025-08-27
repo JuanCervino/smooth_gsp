@@ -21,7 +21,7 @@ N = 100
 Position = np.zeros((N, 2), dtype=float)
 
 # selected points on an N×N grid (randperm without replacement)
-point_select = np.random.choice(N * N, size=N, replace=False) + 1  # +1 to mirror MATLAB's 1..N*N
+point_select = np.random.choice(N * N, size=N, replace=False) + 1  
 
 for i_point in range(N):
     Position[i_point, 0] = (point_select[i_point] - 1) % N + 1  # x coordinate
@@ -85,7 +85,7 @@ T = 600
 Temp = np.zeros((N, T), dtype=float)
 
 ftmp = V.T @ np.random.randn(N)  # spectral coeffs ~ N(0,1)
-ftmp[10:] = ftmp[10:] / 100.0    # weaken high-frequency components (indices 11..end in MATLAB)
+ftmp[10:] = ftmp[10:] / 100.0    
 ftmp = V @ ftmp
 Temp[:, 0] = ftmp / np.linalg.norm(ftmp) * 100.0  # ||x1||2 = 100
 
@@ -111,7 +111,7 @@ for i in range(T):
 
 noise = 0.1 * np.random.randn(*Temp.shape)  # measurement noise
 
-# save paramAWD (MATLAB -> .npz)
+
 np.savez(
     './datasets/paramAWD_var_ep.npz',
     Position=Position,
@@ -126,9 +126,9 @@ np.savez(
 
 # %% generate data for Expreiment_A_5b
 Tempall = np.zeros((N, T, 7), dtype=float)
-Tempall[:, :, 3] = Temp  # channel 4 in MATLAB (index 3 here)
+Tempall[:, :, 3] = Temp  
 
-# recompute eig (kept for fidelity with MATLAB code)
+
 lam2, V2 = np.linalg.eigh(L)
 lam2[0] = 0.0
 lambdaHalfInv2 = 1.0 / np.sqrt(lam2, where=lam2 > 0)
@@ -137,8 +137,7 @@ LHalfInv2 = V2 @ np.diag(lambdaHalfInv2) @ V2.T
 
 epsilon_set = np.array([0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0])
 
-# MATLAB: for i_epsilon = [1 2 3 5 6 7]  (1-based)
-# Python (0-based): indices [0, 1, 2, 4, 5, 6]
+
 for i_epsilon in [0, 1, 2, 4, 5, 6]:
     epsilon = epsilon_set[i_epsilon]
     Tempall[:, 0, i_epsilon] = Tempall[:, 0, 3]  # same x1
@@ -151,7 +150,7 @@ for i_epsilon in [0, 1, 2, 4, 5, 6]:
         fdc = np.random.randn() * 0.0 * np.ones(N)  # DC component (zeroed)
         Tempall[:, k_, i_epsilon] = Tempall[:, k_ - 1, i_epsilon] + LHalfInv2 @ f + fdc
 
-# save paramAWDall (MATLAB -> .npz)
+
 np.savez(
     './datasets/paramAWDall_var_ep.npz',
     Position=Position,
