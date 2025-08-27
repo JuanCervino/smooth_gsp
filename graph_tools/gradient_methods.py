@@ -153,6 +153,8 @@ class primal_dual_loss:
             self.lambdas = torch.tensor([1.0], requires_grad=True)
         else:
             self.lambdas = torch.ones(output_dim) / output_dim
+        
+        self.lambdas=self.lambdas.to(self.device)
 
         
     def primal(self, x, y, mask):

@@ -133,10 +133,10 @@ def main(args):
         X = torch.randn_like(D, requires_grad=True)
         X = X.to(device)
         
-        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=100, verbose=False)
-
         # Create the optimizer
         optimizer = optim.Adam([X], lr=args.lr)
+
+        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=100, verbose=False)
 
         # Get the loss function
         Dh = gm.create_Dh_torch(D.shape[1],device)

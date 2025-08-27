@@ -19,12 +19,12 @@ def get_Sobolev_smoothness_function(x, Dh, Sobolev, type,device):
     assert type in ['integral', 'timewise'], "Type must be either 'integral' or 'timewise'."
     if type == 'timewise':
         x_diff = x @ Dh
-        loss_sob = torch.diag(x_diff.T @ Sobolev @ x_diff,device=device)
+        loss_sob = torch.diag(x_diff.T @ Sobolev @ x_diff).to(device)
         return loss_sob
 
     elif type == 'integral':
         x_diff = x @ Dh
-        loss_sob = torch.diag(x_diff.T @ Sobolev @ x_diff,device=device)
+        loss_sob = torch.diag(x_diff.T @ Sobolev @ x_diff).to(device)
         return torch.sum(loss_sob)
 
 # Julian: I added the device parameter to fix errors when the code uses the GPU.  
