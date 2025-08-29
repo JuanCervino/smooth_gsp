@@ -157,7 +157,7 @@ class primal_dual_loss:
         self.lambdas=self.lambdas.to(self.device)
 
         
-    def primal(self, x, y, mask):
+    def primal(self, x, y, mask,plot_timewise=False):
 
         loss_mse = self.mu * F.mse_loss(torch.mul(x, mask), y)
 
@@ -166,8 +166,11 @@ class primal_dual_loss:
             loss_grad = lambda_output * self.lambdas[0]  # multiply scalar by first lambda
         else:  # vector tensor
             loss_grad = lambda_output @ self.lambdas  # matrix multiplication
-           
-        return loss_mse + loss_grad
+
+        if not plot_timewise :  
+            return loss_mse + loss_grad
+        else:
+            return loss_mse + loss_grad,lambda_output
     
     def dual(self, x, y, mask):
         """

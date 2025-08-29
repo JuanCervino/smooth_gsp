@@ -5,9 +5,9 @@ import scipy.linalg as scipy
 
 
 
-def sampler(type_sampling,D,percentage,good_data,seed):
+def sampler(type_sampling,D,percentage,good_data,noise,seed):
     if type_sampling == 'random':
-        return get_mask(D, percentage, good_data, seed)
+        return get_mask(D, percentage, good_data,noise, seed)
     else:
         print('This sampler is not implemented')
         
@@ -64,7 +64,7 @@ def create_Dh_torch(M, device='cpu'):
 # I also included a seed variable to create a different mask for each seed, 
 # making the process more reproducible.
 
-def get_mask(matrix, percentage_train, good_data, seed=None):
+def get_mask(matrix, percentage_train, good_data,noise, seed=None):
     """
     Create training and test masks for the matrix.
     
@@ -103,7 +103,13 @@ def get_mask(matrix, percentage_train, good_data, seed=None):
     mask = mask_flat.view_as(matrix)
 
     # Create training and test sets
-    train_set = matrix * mask
+    if noise is not None:
+        train_set = (matrix + noise )* mask
+    else:
+        train_set = matrix * mask
+
+        
+
     if bool_mask is not None:
         test_mask = (~mask) * (bool_mask)
         test_set = matrix * test_mask

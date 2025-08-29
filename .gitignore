@@ -12,3 +12,4 @@ __pycache__/
 *.pyc
 *.zip
 .vscode/
+./Error_per_time

@@ -7,27 +7,35 @@ import matplotlib.pyplot as plt
 
 
 ##This function automatically selects the dataset and performs the preprocessing
-def load_D(graph,data):
+def load_D(graph,data,idx=0):
     good_data = None
+    noise= None
     if graph == 'sea_surface_temperature' or graph == 'covid_19_new_cases_global' or graph == 'covid_19_new_cases_USA':
         D=data['Data']
         if graph == 'sea_surface_temperature':
             D=D[:,:600]
     elif graph == 'synthetic' or graph == 'paramAWD_var_ep':
-        D=data['D']
+        #D=data['D']
+        D=data['Temp']
+        noise=data['noise']
+    elif  graph == 'paramAWDall_var_ep':
+        D=data['Tempall']
+        noise=data['noise']
+        D=D[:,:,idx]
+
     elif graph == 'PM2_5_concentration':
         D=data['myDataPM']
         D=D[:,:220]
         good_data = D>0
-    return D,good_data
+    return D,good_data,noise
 
-def load_dataset(graph, knn_param=10):
+def load_dataset(graph, knn_param=10,idx_d=0):
     
         # From
         # https://github.com/jhonygiraldo/GraphTRSS/blob/main/sea_surface_temperature_experiment/graph_construction/graph_construction.m
         # Load .mat file
-        if graph in ['sea_surface_temperature', 'covid_19_new_cases_global', 'covid_19_new_cases_USA', 'PM2_5_concentration','synthetic','paramAWD_var_ep']:
-            if graph == 'paramAWD_var_ep':
+        if graph in ['sea_surface_temperature', 'covid_19_new_cases_global', 'covid_19_new_cases_USA', 'PM2_5_concentration','synthetic','paramAWD_var_ep','paramAWDall_var_ep']:
+            if graph == 'paramAWD_var_ep' or  graph == 'paramAWDall_var_ep':
                 data = np.load(f'./datasets/{graph}.npz')
             else:
                 data = loadmat(f'./datasets/{graph}.mat')
@@ -63,8 +71,8 @@ def load_dataset(graph, knn_param=10):
             }
 
 
-            D,good_data = load_D(graph,data)
-            return G, D,good_data
+            D,good_data,noise = load_D(graph,data,idx_d)
+            return G, D,good_data,noise
         
         elif graph == 'weather':
             # Load the file

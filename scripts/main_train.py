@@ -50,9 +50,11 @@ def main(args):
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    G, D, good_data = load_dataset(args.dataset, knn_param=args.knn)
+    G, D, good_data,noise = load_dataset(args.dataset, knn_param=args.knn,idx_d=args.idx_eps_var)
 
     # Move tensors to GPU
+    if noise is not None:
+       noise=torch.Tensor(noise).to(device)
     if good_data is not None:
         good_data = torch.Tensor(good_data).to(device)
     D = torch.Tensor(D).to(device)
@@ -65,7 +67,7 @@ def main(args):
     
     # Create the mask
     # Sample Trajectories TODO: Add samplers
-    train_set, test_set, mask, test_mask = gu.sampler(args.type_sampler,D, args.percentage, good_data, seed=args.seed)
+    train_set, test_set, mask, test_mask = gu.sampler(args.type_sampler,D, args.percentage, good_data,noise, seed=args.seed)
     #train_set, test_set, mask = gu.get_mask(D, args.percentage)
 
     # Move train_set and mask to GPU
@@ -211,11 +213,15 @@ def main(args):
     #}
 
     # Create the results folder for the given dataset and method
-    os.makedirs(f'results/{args.dataset}/{args.method}', exist_ok=True)
+    if args.dataset is not 'paramAWDall_var_ep':
+        dataset= args.dataset
+    else:
+        dataset= f'{args.dataset}_{args.idx_eps_var}'
+    os.makedirs(f'results/{dataset}/{args.method}', exist_ok=True)
 
     # Path to the JSON file for this sampler
     json_output_path = os.path.join(
-        f'results/{args.dataset}/{args.method}', 
+        f'results/{dataset}/{args.method}', 
         f"{args.type_sampler}.json"
     )
 
@@ -276,6 +282,10 @@ if __name__ == '__main__':
     
     parser.add_argument('--seed', type=int, default=42, help='seed')
     parser.add_argument('--type_sampler', type=str, default='random', help='type_sampler')
+    parser.add_argument('--idx_eps_var', type=int, default=0, choices=[0,1,2,3,4,5,6], help='Index of the list of different epsilon thresholds')
+    
+
+    #idx_eps_var
     args = parser.parse_args()
     
     main(args)

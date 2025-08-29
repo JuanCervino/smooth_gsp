@@ -149,6 +149,7 @@ for i_epsilon in [0, 1, 2, 4, 5, 6]:
         f = f / np.linalg.norm(f) * eps
         fdc = np.random.randn() * 0.0 * np.ones(N)  # DC component (zeroed)
         Tempall[:, k_, i_epsilon] = Tempall[:, k_ - 1, i_epsilon] + LHalfInv2 @ f + fdc
+        
 
 
 np.savez(
