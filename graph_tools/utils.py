@@ -5,6 +5,13 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import json
 
+def smooth_per_time(x,Laplacian, epsilon,M,device,beta=1):
+    Dh=create_Dh_torch(M).to(device)
+    Sobolev= compute_sobolev_matrix( Laplacian, epsilon, beta)
+    x_diff = x @ Dh
+    smooth=x_diff.T @ Sobolev @ x_diff
+    smooth_mean = torch.trace(smooth)
+    return smooth_mean,smooth.diagonal()
 
 #Julian: This is a funtion to replicate the table 1 of the "Reconstruction of Time-Varying Graph Signals via Sobolev Smoothness"
 def summary(dataset,sampling_type):

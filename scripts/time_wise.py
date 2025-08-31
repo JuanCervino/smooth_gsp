@@ -51,7 +51,7 @@ def main(args):
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    G, D, good_data,noise = load_dataset(args.dataset, knn_param=args.knn)
+    G, D, good_data,noise = load_dataset(args.dataset, knn_param=args.knn,idx_d=args.idx_eps_var)
 
     # Move tensors to GPU
     if noise is not None:
@@ -125,6 +125,10 @@ def main(args):
 
     # Compute the RMSE
     #os.makedirs(f'./Error_per_time/{args.dataset}',exist_ok=True)
+    if args.dataset not in ['paramAWDall_var_ep','ultra_paramAWDall_var_ep']:
+        dataset= args.dataset
+    else:
+        dataset= f'{args.dataset}_{args.idx_eps_var}'
 
     plt.figure(figsize=(10, 5))
     plt.plot(time_wise.detach().cpu().numpy())
@@ -133,7 +137,7 @@ def main(args):
     plt.xlabel("Time step")
     plt.ylabel("Error")
     plt.tight_layout()
-    plt.savefig(f'./Error_per_time/Error_per_time_{args.dataset}.jpg')
+    plt.savefig(f'./Error_per_time/Error_per_time_{dataset}.jpg')
     plt.show()
 
     
@@ -169,6 +173,8 @@ if __name__ == '__main__':
     
     parser.add_argument('--seed', type=int, default=42, help='seed')
     parser.add_argument('--type_sampler', type=str, default='random', help='type_sampler')
+    parser.add_argument('--idx_eps_var', type=int, default=0, choices=[0,1,2,3,4,5,6], help='Index of the list of different epsilon thresholds')
+    
     args = parser.parse_args()
     
     main(args)
