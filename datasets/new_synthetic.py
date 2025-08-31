@@ -113,7 +113,7 @@ noise = 0.1 * np.random.randn(*Temp.shape)  # measurement noise
 
 
 np.savez(
-    './datasets/paramAWD_var_ep.npz',
+    './datasets/ultra_paramAWD_var_ep.npz',
     Position=Position,
     A=A,
     W=W,
@@ -135,7 +135,7 @@ lambdaHalfInv2 = 1.0 / np.sqrt(lam2, where=lam2 > 0)
 lambdaHalfInv2[0] = 0.0
 LHalfInv2 = V2 @ np.diag(lambdaHalfInv2) @ V2.T
 
-epsilon_set = np.array([0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0])
+epsilon_set = np.array([15, 20, 25, 30, 40, 50, 100])
 
 
 for i_epsilon in [0, 1, 2, 4, 5, 6]:
@@ -153,7 +153,7 @@ for i_epsilon in [0, 1, 2, 4, 5, 6]:
 
 
 np.savez(
-    './datasets/paramAWDall_var_ep.npz',
+    './datasets/ultra_paramAWDall_var_ep.npz',
     Position=Position,
     A=A,
     W=W,

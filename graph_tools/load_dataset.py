@@ -18,7 +18,7 @@ def load_D(graph,data,idx=0):
         #D=data['D']
         D=data['Temp']
         noise=data['noise']
-    elif  graph == 'paramAWDall_var_ep':
+    elif  graph == 'paramAWDall_var_ep' or graph == 'ultra_paramAWDall_var_ep':
         D=data['Tempall']
         noise=data['noise']
         D=D[:,:,idx]
@@ -34,8 +34,8 @@ def load_dataset(graph, knn_param=10,idx_d=0):
         # From
         # https://github.com/jhonygiraldo/GraphTRSS/blob/main/sea_surface_temperature_experiment/graph_construction/graph_construction.m
         # Load .mat file
-        if graph in ['sea_surface_temperature', 'covid_19_new_cases_global', 'covid_19_new_cases_USA', 'PM2_5_concentration','synthetic','paramAWD_var_ep','paramAWDall_var_ep']:
-            if graph == 'paramAWD_var_ep' or  graph == 'paramAWDall_var_ep':
+        if graph in ['sea_surface_temperature', 'covid_19_new_cases_global', 'covid_19_new_cases_USA', 'PM2_5_concentration','synthetic','paramAWD_var_ep','paramAWDall_var_ep','ultra_paramAWDall_var_ep']:
+            if graph == 'paramAWD_var_ep' or  graph == 'paramAWDall_var_ep' or graph == 'ultra_paramAWDall_var_ep':
                 data = np.load(f'./datasets/{graph}.npz')
             else:
                 data = loadmat(f'./datasets/{graph}.mat')

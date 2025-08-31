@@ -213,7 +213,7 @@ def main(args):
     #}
 
     # Create the results folder for the given dataset and method
-    if args.dataset is not 'paramAWDall_var_ep':
+    if args.dataset not in ['paramAWDall_var_ep','ultra_paramAWDall_var_ep']:
         dataset= args.dataset
     else:
         dataset= f'{args.dataset}_{args.idx_eps_var}'

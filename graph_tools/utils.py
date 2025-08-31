@@ -11,7 +11,7 @@ def summary(dataset,sampling_type):
     #It lists the methods that has available results
     methods=os.listdir(f'./results/{dataset}')
 
-    methods = [m for m in methods if m != "Summary"]
+    methods = [m for m in methods if m != "Summary" and m != "hyperparameter_search"]
 
     results = {method: {'RMSE':0 , 'MAE': 0 , 'MAPE': 0 } for method in methods}
 
@@ -46,7 +46,7 @@ def summary(dataset,sampling_type):
 
 def plot_rmse_vs_percentage(dataset, sampling_type):
 
-    methods = [m for m in os.listdir(f'./results/{dataset}') if m != "Summary"]
+    methods = [m for m in os.listdir(f'./results/{dataset}') if m != "Summary" and m != "hyperparameter_search"]
 
     results_percentage_all = {}
 
@@ -109,7 +109,7 @@ def plot_rmse_vs_percentage(dataset, sampling_type):
             markersize=8
         )
 
-    if dataset in ['sea_surface_temperature', 'synthetic', 'weather']:
+    if dataset in ['sea_surface_temperature', 'synthetic', 'weather','paramAWD_var_ep']:
         plt.yscale('log')
         y_min = min(np.min(v[1]) for v in results_percentage_all.values())
         y_max = max(np.max(v[1]) for v in results_percentage_all.values())
