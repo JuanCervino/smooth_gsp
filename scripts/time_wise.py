@@ -79,7 +79,34 @@ def main(args):
         # Create the matrix X
         X = torch.randn_like(D, requires_grad=True)
         X = X.to(device)
-        
+        M=D.shape[1]
+        smooth_avg,smooth_time=gu.smooth_per_time(X,L, args.epsilon,M,device,args.beta)
+        smooth_avg=smooth_avg/smooth_time.shape[0]
+        # Convertir a numpy si es tensor de PyTorch
+        smooth_time_np = smooth_time.detach().cpu().numpy()
+        smooth_avg_val = smooth_avg.item()  # convierte tensor escalar a float
+
+        # Eje X: rango de tiempo
+        tiempo = range(smooth_time_np.shape[0])
+
+        # Graficar
+        if args.dataset not in ['paramAWDall_var_ep','ultra_paramAWDall_var_ep']:
+            dataset= args.dataset
+        else:
+            dataset= f'{args.dataset}_{args.idx_eps_var}'
+        os.makedirs(f'analysis/{dataset}',exist_ok=True)
+        plt.figure(figsize=(8, 4))
+        plt.plot(tiempo, smooth_time_np, label='Smooth por instante', linewidth=2)
+        plt.axhline(y=smooth_avg_val, color='red', linestyle='--', label='Smooth promedio')
+
+        plt.xlabel('Tiempo')
+        plt.ylabel('Smooth')
+        plt.title('Smooth por tiempo vs Promedio Global')
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(f'analysis/{dataset}/Smooth_per_time_{dataset}.png')
+        plt.show()
         # Create the optimizer
         optimizer = optim.Adam([X], lr=args.lr)
 
