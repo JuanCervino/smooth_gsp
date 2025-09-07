@@ -223,10 +223,14 @@ def solver_NNI_nan(SampleMatrix, SampledData, Position):
         
     return x_recon
 
+
+
 def smooth_per_time(x,Laplacian, epsilon,M,device,beta=1):
     Dh=create_Dh_torch(M).to(device)
     Sobolev= compute_sobolev_matrix( Laplacian, epsilon, beta)
     x_diff = x @ Dh
     smooth=x_diff.T @ Sobolev @ x_diff
-    smooth_mean = torch.trace(smooth)
-    return smooth_mean,smooth.diagonal()
+    smooth_mean = torch.trace(smooth) / smooth.shape[0]
+    smooth=smooth.diagonal()
+    
+    return smooth_mean,smooth

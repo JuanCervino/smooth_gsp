@@ -5,7 +5,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from graph_tools.utils import summary,plot_rmse_vs_percentage
 
-dataset='ultra_paramAWDall_var_ep_5'
+dataset='paramAWDall_var_ep_0'
 sampling_type='random'
 
 summary(dataset=dataset,sampling_type=sampling_type)

@@ -136,7 +136,7 @@ lambdaHalfInv2[0] = 0.0
 LHalfInv2 = V2 @ np.diag(lambdaHalfInv2) @ V2.T
 
 epsilon_set = np.array([15, 20, 25, 30, 40, 50, 100])
-
+#epsilon_set = np.array([0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0])
 
 for i_epsilon in [0, 1, 2, 4, 5, 6]:
     epsilon = epsilon_set[i_epsilon]

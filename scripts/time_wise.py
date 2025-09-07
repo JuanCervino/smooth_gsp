@@ -75,16 +75,18 @@ def main(args):
     train_set = train_set.to(device)
     mask = mask.to(device)
     
+    
     if  args.method in ['PrimalDual']:
         # Create the matrix X
         X = torch.randn_like(D, requires_grad=True)
         X = X.to(device)
         M=D.shape[1]
-        smooth_avg,smooth_time=gu.smooth_per_time(X,L, args.epsilon,M,device,args.beta)
-        smooth_avg=smooth_avg/smooth_time.shape[0]
+        smooth_avg,smooth_time=gu.smooth_per_time(D,L, args.epsilon,M,device,args.beta)
+        #smooth_avg=smooth_avg/smooth_time.shape[0]
+
         # Convertir a numpy si es tensor de PyTorch
         smooth_time_np = smooth_time.detach().cpu().numpy()
-        smooth_avg_val = smooth_avg.item()  # convierte tensor escalar a float
+        smooth_avg = smooth_avg.item()  # convierte tensor escalar a float
 
         # Eje X: rango de tiempo
         tiempo = range(smooth_time_np.shape[0])
@@ -94,10 +96,11 @@ def main(args):
             dataset= args.dataset
         else:
             dataset= f'{args.dataset}_{args.idx_eps_var}'
-        os.makedirs(f'analysis/{dataset}',exist_ok=True)
+
+        os.makedirs(f'results/{dataset}/Summary',exist_ok=True)
         plt.figure(figsize=(8, 4))
         plt.plot(tiempo, smooth_time_np, label='Smooth por instante', linewidth=2)
-        plt.axhline(y=smooth_avg_val, color='red', linestyle='--', label='Smooth promedio')
+        plt.axhline(y=smooth_avg, color='red', linestyle='--', label='Smooth promedio')
 
         plt.xlabel('Tiempo')
         plt.ylabel('Smooth')
@@ -105,7 +108,7 @@ def main(args):
         plt.legend()
         plt.grid(True)
         plt.tight_layout()
-        plt.savefig(f'analysis/{dataset}/Smooth_per_time_{dataset}.png')
+        plt.savefig(f'results/{dataset}/Summary/Smooth_per_time_{dataset}.jpg')
         plt.show()
         # Create the optimizer
         optimizer = optim.Adam([X], lr=args.lr)
@@ -150,13 +153,13 @@ def main(args):
                     pm_loss.dual(X, train_set, mask)
 
 
-    # Compute the RMSE
+    
     #os.makedirs(f'./Error_per_time/{args.dataset}',exist_ok=True)
     if args.dataset not in ['paramAWDall_var_ep','ultra_paramAWDall_var_ep']:
         dataset= args.dataset
     else:
         dataset= f'{args.dataset}_{args.idx_eps_var}'
-
+#
     plt.figure(figsize=(10, 5))
     plt.plot(time_wise.detach().cpu().numpy())
     plt.title(f"Error per time  {args.dataset}")
@@ -164,7 +167,7 @@ def main(args):
     plt.xlabel("Time step")
     plt.ylabel("Error")
     plt.tight_layout()
-    plt.savefig(f'./Error_per_time/Error_per_time_{dataset}.jpg')
+    plt.savefig(f'./results/{dataset}/Summary/Error_per_time_{dataset}.jpg')
     plt.show()
 
     
@@ -176,9 +179,9 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Get Smooth Graph Signal')
-    parser.add_argument('--dataset', type=str, default='synthetic')
+    parser.add_argument('--dataset', type=str, default='ultra_paramAWDall_var_ep')
     parser.add_argument('--knn', type=int, default=10)
-    parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument('--epochs', type=int, default=1)#20000)
     parser.add_argument('--method', type=str, default='PrimalDual')
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--percentage', type=float, default=0.5, help='Percentage of data to be used for training between 0 and 1')
