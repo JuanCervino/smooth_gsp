@@ -7,29 +7,69 @@ import matplotlib.pyplot as plt
 
 
 ##This function automatically selects the dataset and performs the preprocessing
-def load_D(graph,data,idx=0):
+def load_D(graph,data,idx=0,target_snr_db=None):
     good_data = None
     noise= None
     if graph == 'sea_surface_temperature' or graph == 'covid_19_new_cases_global' or graph == 'covid_19_new_cases_USA':
         D=data['Data']
         if graph == 'sea_surface_temperature':
             D=D[:,:600]
+
+            if target_snr_db is not None:
+                # Generate synthetic white Gaussian noise
+                rng = np.random.default_rng(seed=42)  
+                noise = rng.normal(loc=0.0, scale=1.0, size=D.shape)
+
+                signal_power = np.mean(D ** 2)
+                snr_linear = 10 ** (target_snr_db / 10)
+                desired_noise_power = signal_power / snr_linear
+                current_noise_power = np.mean(noise ** 2)
+
+                scale_factor = np.sqrt(desired_noise_power / current_noise_power)
+                noise = noise * scale_factor
+
     elif graph == 'synthetic' or graph == 'paramAWD_var_ep':
         #D=data['D']
         D=data['Temp']
         noise=data['noise']
+        
+
     elif  graph == 'paramAWDall_var_ep' or graph == 'ultra_paramAWDall_var_ep':
         D=data['Tempall']
         noise=data['noise']
         D=D[:,:,idx]
 
+        #to add a desire noise
+        if target_snr_db is not None:
+            # scale noise to match desired SNR
+            signal_power = np.mean(D ** 2)
+            snr_linear = 10 ** (target_snr_db / 10)
+            desired_noise_power = signal_power / snr_linear
+            current_noise_power = np.mean(noise ** 2)
+            scale_factor = np.sqrt(desired_noise_power / current_noise_power)
+            noise = noise * scale_factor
+
     elif graph == 'PM2_5_concentration':
         D=data['myDataPM']
         D=D[:,:220]
         good_data = D>0
+
+        if target_snr_db is not None:
+                # Generate synthetic white Gaussian noise
+                rng = np.random.default_rng(seed=42)  
+                noise = rng.normal(loc=0.0, scale=1.0, size=D.shape)
+
+                signal_power = np.mean(D ** 2)
+                snr_linear = 10 ** (target_snr_db / 10)
+                desired_noise_power = signal_power / snr_linear
+                current_noise_power = np.mean(noise ** 2)
+
+                scale_factor = np.sqrt(desired_noise_power / current_noise_power)
+                noise = noise * scale_factor
+            
     return D,good_data,noise
 
-def load_dataset(graph, knn_param=10,idx_d=0):
+def load_dataset(graph, knn_param=10,idx_d=0,target_snr_db=None):
     
         # From
         # https://github.com/jhonygiraldo/GraphTRSS/blob/main/sea_surface_temperature_experiment/graph_construction/graph_construction.m
@@ -71,7 +111,7 @@ def load_dataset(graph, knn_param=10,idx_d=0):
             }
 
 
-            D,good_data,noise = load_D(graph,data,idx_d)
+            D,good_data,noise = load_D(graph,data,idx_d,target_snr_db)
             return G, D,good_data,noise
         
         elif graph == 'weather':

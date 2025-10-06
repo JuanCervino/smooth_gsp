@@ -40,12 +40,43 @@ def summary(dataset,sampling_type):
     os.makedirs(f'./results/{dataset}/Summary',exist_ok=True)
     with open(f'./results/{dataset}/Summary/summary_{sampling_type}.json', 'w') as f:
         json.dump(results, f, indent=4)
+
+def summary_sampling(dataset,method,sampling_type,pr_sp):
+    #It lists the methods that has available results
+    methods=os.listdir(f'./results/{dataset}')
+
+    methods
+
+    results = {method: {'RMSE':0 , 'MAE': 0 , 'MAPE': 0 } for method in methods}
+
+    with open(f'./results/{dataset}/{method}/{sampling_type}.json','r') as f:
+        data=json.load(f)
+
+    results_seeds={'RMSE': [], 'MAE': [], 'MAPE': []}
+    for seed in data['seeds']:
+
+        
+        current_results=data['seeds'][seed]['results_per_percentage'][pr_sp]
+        
+        results_seeds['RMSE'].append(float( current_results['RMSE'] ))
+        results_seeds['MAE'].append( float( current_results['MAE']  ) )
+        results_seeds['MAPE'].append(float( current_results['MAPE'] ) )
+    
+    results[method]['RMSE'] = np.mean(results_seeds['RMSE'])
+    results[method]['MAE'] = np.mean(results_seeds['MAE'])
+    results[method]['MAPE'] = np.mean(results_seeds['MAPE'])
+
+    return results
             
 
 
 def plot_rmse_vs_percentage(dataset, sampling_type):
 
-    methods = [m for m in os.listdir(f'./results/{dataset}') if m != "Summary" and m != "hyperparameter_search"]
+    plt.rcParams["font.family"] = "serif"
+    plt.rcParams["font.serif"] = ["Times New Roman", "Times", "DejaVu Serif"]
+
+    #methods = [m for m in os.listdir(f'./results/{dataset}') if m != "Summary" and m != "hyperparameter_search"]
+    methods = ['Sobolev','PrimalDual','Tikhonov','nni']#,'GraphRegularization']
 
     results_percentage_all = {}
 
@@ -79,12 +110,12 @@ def plot_rmse_vs_percentage(dataset, sampling_type):
 
     # estilos personalizados (puedes ampliar la lista si quieres)
     method_styles = {
-        'TGSR':      {'color': 'red',    'linestyle': '-',   'marker': 'o'},
-        'Sobolev':   {'color': 'blue',   'linestyle': ':',   'marker': 'D'},
-        'nni':       {'color': 'black',  'linestyle': '-',   'marker': '*'},
-        'GraphRegularization': {'color': 'deepskyblue', 'linestyle': '-', 'marker': 'X'},
-        'Tikhonov':  {'color': 'green',  'linestyle': '-',   'marker': 's'},
-    }
+    'Sobolev':               {'color': 'blue',        'linestyle': ':',   'marker': 'D', 'label': 'GraphTRSS'},
+    'PrimalDual':            {'color': 'orange',      'linestyle': '-',   'marker': 'v', 'label': 'PrimalDual'},  # ← este queda igual
+    'nni':                   {'color': 'black',       'linestyle': '-',   'marker': '*', 'label': 'NNI'},
+    'Tikhonov':              {'color': 'green',       'linestyle': '-',   'marker': 's', 'label': 'Tikhonov'},
+    'GraphRegularization':   {'color': 'deepskyblue', 'linestyle': '-',   'marker': 'X', 'label': 'GraphRegularization'},
+}
     default_colors = ['tab:orange', 'tab:green', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray']
     default_linestyles = ['-', '--', '-.', ':']
     default_markers = ['o', 's', '^', 'D', '*', 'x', '+']
@@ -103,29 +134,29 @@ def plot_rmse_vs_percentage(dataset, sampling_type):
             color=style['color'],
             linestyle=style['linestyle'],
             marker=style['marker'],
-            label=method,
+            label=style["label"],
             linewidth=2,
             markersize=8
         )
 
-    if dataset in ['sea_surface_temperature', 'synthetic', 'weather','paramAWD_var_ep']:
-        plt.yscale('log')
-        y_min = min(np.min(v[1]) for v in results_percentage_all.values())
-        y_max = max(np.max(v[1]) for v in results_percentage_all.values())
-        y_min = 10**np.floor(np.log10(y_min))
-        y_max = 10**np.ceil(np.log10(y_max))
-        plt.yticks(np.logspace(np.log10(y_min), np.log10(y_max), num=5))
-        plt.gca().yaxis.set_major_formatter(ticker.LogFormatterSciNotation(base=10))
-
-    plt.xlabel("Sampling percentage")
-    plt.ylabel("RMSE")
-    plt.title(f"RMSE vs Sampling Percentage - {dataset}")
+    #ymin, ymax = plt.ylim()
+    #lo = np.floor(np.log10(ymin))
+    #hi = np.ceil(np.log10(ymax))
+    #plt.ylim(10**lo, 10**hi)
+#
+    #plt.yscale('log')
+    plt.xlabel("Sampling percentage", fontsize=35)
+    plt.ylabel("RMSE", fontsize=35)
+    plt.xticks(fontsize=29)
+    plt.yticks(fontsize=29)
+    plt.yticks(np.arange(0.4, 1.8, 0.4))
+    plt.legend(fontsize=26,loc='best',framealpha=0.7)
+    #plt.title(f"RMSE vs Sampling Percentage - {dataset}")
     plt.grid(True, which='both', ls='--', lw=0.5)
-    plt.legend()
     plt.tight_layout()
 
     os.makedirs(f'./results/{dataset}/Summary', exist_ok=True)
-    plt.savefig(f'./results/{dataset}/Summary/RMSE_vs_percentage.png')
+    plt.savefig(f'./results/{dataset}/Summary/RMSE_vs_percentage.pdf')
     plt.show()
 
             

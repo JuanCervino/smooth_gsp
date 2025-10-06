@@ -50,7 +50,7 @@ def main(args):
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    G, D, good_data,noise = load_dataset(args.dataset, knn_param=args.knn,idx_d=args.idx_eps_var)
+    G, D, good_data,noise = load_dataset(args.dataset, knn_param=args.knn,idx_d=args.idx_eps_var,target_snr_db=args.target_snr_db)
 
     # Move tensors to GPU
     if noise is not None:
@@ -213,10 +213,21 @@ def main(args):
     #}
 
     # Create the results folder for the given dataset and method
-    if args.dataset not in ['paramAWDall_var_ep','ultra_paramAWDall_var_ep']:
-        dataset= args.dataset
+    if args.dataset not in ['paramAWDall_var_ep','ultra_paramAWDall_var_ep'] :
+       
+        if args.target_snr_db is not None:
+       
+            dataset= f'{args.dataset}_{args.target_snr_db}'
+       
+        else:
+            dataset= args.dataset
+
     else:
-        dataset= f'{args.dataset}_{args.idx_eps_var}'
+
+        if args.target_snr_db is not None:
+            dataset= f'{args.dataset}_{args.idx_eps_var}_{args.target_snr_db}'
+        else:
+            dataset= f'{args.dataset}_{args.idx_eps_var}'
     os.makedirs(f'results/{dataset}/{args.method}', exist_ok=True)
 
     # Path to the JSON file for this sampler
@@ -283,6 +294,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=42, help='seed')
     parser.add_argument('--type_sampler', type=str, default='random', help='type_sampler')
     parser.add_argument('--idx_eps_var', type=int, default=0, choices=[0,1,2,3,4,5,6], help='Index of the list of different epsilon thresholds')
+    parser.add_argument('--target_snr_db', type=float, default=-5, help='Target SNR level in dB (e.g., 20.0, 30.0). If None, no noise scaling is applied.')
     
 
     #idx_eps_var
