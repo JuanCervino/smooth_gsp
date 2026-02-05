@@ -3,7 +3,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import argparse
 
-
+import graph_tools.optimization_tools as ot
 from graph_tools.load_dataset import load_dataset
 import numpy as np
 import torch
@@ -88,7 +88,7 @@ def main(args):
 
         print("Test", mse(x_recon[test_mask.cpu().numpy()], D_cpu[test_mask.cpu()].numpy()))
 
-    elif args.method in ['MSE', 'Tikhonov', 'Sobolev', 'GraphRegularization', 'Temporal', 'All']:
+    elif args.method in ['MSE', 'Tikhonov', 'Sobolev', 'GraphRegularization', 'Temporal', 'All'] and args.rank is None:
         
         # Create the matrix X
         X = torch.randn_like(D, requires_grad=True).to(device)
@@ -97,7 +97,7 @@ def main(args):
         optimizer = optim.Adam([X], lr=args.lr)
         
         #Julian: We added the scheduler because in the original paper Jhony used an algorithm to adapt the lr
-        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=100, verbose=False)
+        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=100)
         
         # Get the loss function
         loss_fn = gm.get_loss(args.method, args.coefficient_mse, args.coefficient_lap, args.coefficient_temp, args.coefficient_sob, L, args.epsilon, args.beta, D.shape[1],device)
@@ -128,6 +128,50 @@ def main(args):
                 print(f'Epoch {e}, Loss Total: {acc_total.item()}, Loss Train: {acc_train.item()}, Loss Test: {acc_test.item()}')
                 
             # print(f'Gradient: {X.grad}')
+    
+    elif args.method in ['MSE', 'Tikhonov', 'Sobolev', 'GraphRegularization', 'Temporal', 'All'] and args.rank is not None:
+        # Create the matrix X
+        # X = torch.randn_like(D, requires_grad=True).to(device)
+        m, n = D.shape
+        k = args.rank  # rank
+        L_factor = torch.randn(m, k, requires_grad=True).to(device)
+        R_factor = torch.randn(k, n, requires_grad=True).to(device)
+        # Create the optimizer
+        optimizer = optim.Adam([L_factor, R_factor], lr=args.lr)
+        
+        #Julian: We added the scheduler because in the original paper Jhony used an algorithm to adapt the lr
+        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=100)
+        
+        # Get the loss function
+        loss_fn = gm.get_loss(args.method, args.coefficient_mse, args.coefficient_lap, args.coefficient_temp, args.coefficient_sob, L, args.epsilon, args.beta, D.shape[1],device)
+        
+        ## Learning pipeline
+        for e in range(args.epochs):
+                        
+            # Zero the gradients before the forward pass
+            optimizer.zero_grad()
+
+            # Compute the loss
+            loss = loss_fn(L_factor @ R_factor, train_set, mask)
+
+            # Backpropagate the loss
+            loss.backward()
+
+            # Update the parameters
+            optimizer.step()
+
+            acc_train = accuracy((L_factor @ R_factor)[mask], D[mask])
+            rmse_train = torch.sqrt(acc_train)
+            scheduler.step(rmse_train)
+
+            if e % 100 == 0:
+                acc_total = accuracy(L_factor @ R_factor, D)
+                acc_train = accuracy((L_factor @ R_factor)[mask], D[mask])
+                acc_test = accuracy((L_factor @ R_factor)[test_mask], D[test_mask])
+                print(f'Epoch {e}, Loss Total: {acc_total.item()}, Loss Train: {acc_train.item()}, Loss Test: {acc_test.item()}')
+        # Final low-rank reconstruction
+        X = L_factor @ R_factor
+                
         
 
     elif args.method in ['PrimalDual']:
@@ -176,8 +220,23 @@ def main(args):
                 # Update the lambdas
                 with torch.no_grad():
                     pm_loss.dual(X, train_set, mask)
+    # Now the optimization methods                
+    elif args.method in ['laplacian', 'epigraph_timewise', 'epigraph_average_time']:
+        # Make sure the Laplacian is positive definite
+        L_pos = L
+        val_diag = 1e-4
+        while torch.all(torch.linalg.eigvalsh(L_pos) >= +1e-10).item() == False:
+            val_diag *= 10
+            L_pos = L + val_diag * torch.eye(L.shape[0], device=L.device) 
+        print("Adjusted Laplacian with diagonal value:", val_diag)
+        print(train_set.shape)
+        out = ot.solve_P_star(train_set, L_pos, args.alpha, grad_norm="epigraph_average_time", solver="SCS")
 
-
+        # out = ot.solve_P_star(train_set, L_pos, args.alpha, grad_norm=args.method, solver="SCS")
+        print(out)
+        X = out["X_tilde"].to(device)
+    
+        
     # Compute the RMSE
     if args.method == 'nni':
         MSE=mse(x_recon[test_mask.cpu().numpy()], D[test_mask].cpu().numpy())
@@ -191,6 +250,7 @@ def main(args):
         RMSE = torch.sqrt(MSE).cpu()
 
     results={'RMSE':RMSE.item(),'MAPE':MAPE.item(),'MAE':MAE.item()}
+    print(f"Final Results - RMSE: {RMSE.item()}, MAE: {MAE.item()}, MAPE: {MAPE.item()}")
     # Save the results to a JSON file.
     # The JSON stores results for a specific dataset and a single seed.
     # It contains entries for different percentage values, where each percentage
@@ -271,6 +331,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Get Smooth Graph Signal')
     parser.add_argument('--dataset', type=str, default='sea_surface_temperature')
     parser.add_argument('--knn', type=int, default=10)
+    parser.add_argument('--rank', type=int, default=None, help='Rank for the low-rank methods. If None, full-rank methods are used.')
+
     parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('--method', type=str, default='all')
     parser.add_argument('--lr', type=float, default=0.01)
